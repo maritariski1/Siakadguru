@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Administrasi Kurikulum 2026/2027</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for beautiful visuals -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom Scrollbar for matrix grids */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- React App Root -->
+    <div id="root" class="flex-grow flex flex-col"></div>
+
+    <!-- React and ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Firebase SDK Modules -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, onSnapshot, addDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        window.firebaseModules = {
+            initializeApp,
+            getAuth,
+            signInAnonymously,
+            signInWithCustomToken,
+            onAuthStateChanged,
+            getFirestore,
+            doc,
+            getDoc,
+            setDoc,
+            updateDoc,
+            collection,
+            onSnapshot,
+            addDoc,
+            deleteDoc,
+            query
+        };
+    </script>
+
+    <!-- React Application Logic -->
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // Master Data Guru
+        const TEACHERS = [
+            "Rosalia Aristiati", "Alfiah", "Endang Sulistyaningsih", "Mahrudi", "Abdul Wakhid",
+            "Rita Widjajanti", "Sri Wahyuni", "Sri Jamiati", "Wahyuning Tias", "Ida Rosida",
+            "Sri Sihniyati", "Anita Widyastuti", "Ira Yuliani Kusumaningrum", "Hartini",
+            "Ely Nilawati", "Niken Wulandari", "Sri Hidayati A.S", "Neti Diyah Pancaningrum",
+            "Agustin Giri Hapsari", "Solikin", "Andika Kusumawati", "Nor Hamidah",
+            "Istining Muntikah", "Sri Kadarsih", "Sri Winda Agustina Wibowo", "Sujiyah",
+            "Scripzyan Meifany Ariyadi Nk", "Umi Fahruroh", "Aries Trian Pradestira",
+            "Mar'atush Sholihah R", "Moh Nurman Salikul Ihsan", "Ahmad Dliyaul Haq",
+            "Istiqomah Novitaningrum", "Fridha Fadhlurrahma", "Devia Kristianti",
+            "Dwi Nur Hidayah", "Marita Riski Prastya", "Yuliyanto, S.Pd", "Yulianto",
+            "Kautsar Julia Jasmine", "Nanik Widarti"
+        ].sort();
+
+        // Master Data Mapel
+        const SUBJECTS = [
+            "Pendidikan Agama Islam", "Pendidikan Agama Kristen", "Bahasa Indonesia",
+            "IPA", "IPS", "Bahasa Jawa", "Seni dan Prakarya", "Bahasa Inggris",
+            "KKA", "PJOK", "Matematika", "Pendidikan Pancasila", "Informatika", "Bimbingan Konseling"
+        ].sort();
+
+        // Wali Kelas Mapping
+        const HOMEROOM_MAP = {
+            "7A": "Sujiyah",
+            "7B": "Mar'atush Sholihah R",
+            "7C": "Agustin Giri Hapsari",
+            "7D": "Dwi Nur Hidayah",
+            "7E": "Niken Wulandari",
+            "7F": "Yuliyanto, S.Pd",
+            "7G": "Hartini",
+            "7H": "Fridha Fadhlurrahma",
+            "8A": "Neti Diyah Pancaningrum",
+            "8B": "Istining Muntikah",
+            "8C": "Ahmad Dliyaul Haq",
+            "8D": "Marita Riski Prastya",
+            "8E": "Sri Wahyuni",
+            "8F": "Umi Fahruroh",
+            "8G": "Rita Widjajanti",
+            "8H": "Sri Hidayati A.S",
+            "9A": "Devia Kristianti",
+            "9B": "Nor Hamidah",
+            "9C": "Sri Kadarsih",
+            "9D": "Ira Yuliani Kusumaningrum",
+            "9E": "Wahyuning Tias",
+            "9F": "Sri Jamiati",
+            "9G": "Istiqomah Novitaningrum",
+            "9H": "Ida Rosida"
+        };
+
+        const CLASSES = Object.keys(HOMEROOM_MAP).sort();
+
+        // Weeks Option (1 to 40)
+        const WEEKS = Array.from({ length: 40 }, (_, i) => `Minggu ${i + 1}`);
+
+        // Months Option
+        const MONTHS = [
+            "Juli 2026", "Agustus 2026", "September 2026", "Oktober 2026", "November 2026", "Desember 2026",
+            "Januari 2027", "Februari 2027", "Maret 2027", "April 2027", "Mei 2027", "Juni 2027"
+        ];
+
+        function App() {
+            const [db, setDb] = useState(null);
+            const [auth, setAuth] = useState(null);
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [saving, setSaving] = useState(false);
+
+            // App State
+            const [submissions, setSubmissions] = useState([]);
+            const [adminPin, setAdminPin] = useState("2026"); // Default PIN
+            const [isUnlocked, setIsUnlocked] = useState(false);
+            const [showPinModal, setShowPinModal] = useState(false);
+            const [pinInput, setPinInput] = useState("");
+            const [pinError, setPinError] = useState("");
+            const [showSettingsModal, setShowSettingsModal] = useState(false);
+            const [newPinInput, setNewPinInput] = useState("");
+
+            // Navigation Tab
+            const [currentTab, setCurrentTab] = useState("overview"); // overview, perangkat, jurnal_mengajar, jurnal_walikelas, jurnal_kelas
+
+            // Form Inputs
+            const [formType, setFormType] = useState("perangkat"); // perangkat, jurnal_mengajar, jurnal_walikelas, jurnal_kelas
+            const [formTeacher, setFormTeacher] = useState("");
+            const [formSubject, setFormSubject] = useState("");
+            const [formClass, setFormClass] = useState("");
+            const [formPeriod, setFormPeriod] = useState("Tahun Ajaran 2026/2027");
+            const [formStatus, setFormStatus] = useState("Sudah");
+            const [formNotes, setFormNotes] = useState("");
+
+            // Filter States
+            const [filterTeacher, setFilterTeacher] = useState("");
+            const [filterClass, setFilterClass] = useState("");
+            const [filterSubject, setFilterSubject] = useState("");
+            const [filterStatus, setFilterStatus] = useState("");
+            const [searchTerm, setSearchTerm] = useState("");
+
+            // UI Toast
+            const [toast, setToast] = useState(null);
+
+            // Chart Reference
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            const showToast = (message, type = "success") => {
+                setToast({ message, type });
+                setTimeout(() => setToast(null), 4000);
+            };
+
+            useEffect(() => {
+                const initFirebase = async () => {
+                    try {
+                        const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore } = window.firebaseModules;
+                        
+                        // Fallback Configuration
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'kurikulum-admin-dashboard';
+                        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+                            ? JSON.parse(__firebase_config) 
+                            : {
+                                apiKey: "mock-api-key",
+                                authDomain: "mock-auth-domain",
+                                projectId: "mock-project-id",
+                                storageBucket: "mock-storage-bucket",
+                                messagingSenderId: "mock-sender-id",
+                                appId: "mock-app-id"
+                            };
+
+                        const app = initializeApp(firebaseConfig);
+                        const firestoreDb = getFirestore(app);
+                        const firebaseAuth = getAuth(app);
+
+                        setDb(firestoreDb);
+                        setAuth(firebaseAuth);
+
+                        // Authentication Flow (Rule 3: Auth Before Queries)
+                        let currentUser = null;
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            try {
+                                const userCredential = await signInWithCustomToken(firebaseAuth, __initial_auth_token);
+                                currentUser = userCredential.user;
+                            } catch (authErr) {
+                                console.warn("Failed custom token auth, trying anonymous...", authErr);
+                                const userCredential = await signInAnonymously(firebaseAuth);
+                                currentUser = userCredential.user;
+                            }
+                        } else {
+                            const userCredential = await signInAnonymously(firebaseAuth);
+                            currentUser = userCredential.user;
+                        }
+
+                        setUser(currentUser);
+
+                        // Submissions Path: /artifacts/{appId}/public/data/submissions
+                        const { collection, onSnapshot, doc, getDoc, setDoc } = window.firebaseModules;
+                        
+                        const submissionsPath = `/artifacts/${appId}/public/data/submissions`;
+                        const settingsPath = `/artifacts/${appId}/public/data/settings`;
+
+                        // Load Custom PIN
+                        const pinDocRef = doc(firestoreDb, settingsPath, "pin_config");
+                        const pinSnap = await getDoc(pinDocRef);
+                        if (pinSnap.exists()) {
+                            setAdminPin(pinSnap.data().pin || "2026");
+                        } else {
+                            // Write default pin on first run
+                            await setDoc(pinDocRef, { pin: "2026" }, { merge: true });
+                        }
+
+                        // Listen to real-time updates for submissions
+                        const submissionsCol = collection(firestoreDb, submissionsPath);
+                        const unsubscribe = onSnapshot(submissionsCol, (snapshot) => {
+                            const list = [];
+                            snapshot.forEach((doc) => {
+                                list.push({ id: doc.id, ...doc.data() });
+                            });
+                            setSubmissions(list);
+                            setLoading(false);
+                        }, (error) => {
+                            console.error("Firestore loading error:", error);
+                            showToast("Gagal menyinkronkan data dengan server. Menggunakan database lokal.", "error");
+                            setLoading(false);
+                        });
+
+                        return () => unsubscribe();
+                    } catch (err) {
+                        console.error("Firebase init failed, running on mock mode:", err);
+                        setLoading(false);
+                        showToast("Menjalankan aplikasi dalam mode demo offline.", "info");
+                    }
+                };
+
+                initFirebase();
+            }, []);
+
+            // Auto-fill Teacher if Jurnal Wali Kelas is selected and Class changes
+            useEffect(() => {
+                if (formType === "jurnal_walikelas" && formClass) {
+                    const mappedTeacher = HOMEROOM_MAP[formClass];
+                    if (mappedTeacher) {
+                        setFormTeacher(mappedTeacher);
+                    }
+                }
+            }, [formType, formClass]);
+
+            // Adjust default period based on administration type selection
+            useEffect(() => {
+                if (formType === "perangkat") {
+                    setFormPeriod("Tahun Ajaran 2026/2027");
+                } else if (formType === "jurnal_mengajar" || formType === "jurnal_kelas") {
+                    setFormPeriod("Minggu 1");
+                } else if (formType === "jurnal_walikelas") {
+                    setFormPeriod("Juli 2026");
+                }
+            }, [formType]);
+
+            const handleUnlock = (e) => {
+                e.preventDefault();
+                if (pinInput === adminPin) {
+                    setIsUnlocked(true);
+                    setShowPinModal(false);
+                    setPinInput("");
+                    setPinError("");
+                    showToast("Sesi Kurikulum Berhasil Dibuka! Anda dapat melakukan input.", "success");
+                } else {
+                    setPinError("PIN yang Anda masukkan salah. Silakan coba lagi.");
+                }
+            };
+
+            const handleLock = () => {
+                setIsUnlocked(false);
+                showToast("Sesi Kurikulum Terkunci kembali.", "info");
+            };
+
+            const handleUpdatePin = async (e) => {
+                e.preventDefault();
+                if (!newPinInput || newPinInput.trim().length < 4) {
+                    showToast("PIN baru minimal harus terdiri dari 4 digit.", "error");
+                    return;
+                }
+
+                try {
+                    const { doc, setDoc } = window.firebaseModules;
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'kurikulum-admin-dashboard';
+                    const settingsPath = `/artifacts/${appId}/public/data/settings`;
+                    
+                    if (db) {
+                        const pinDocRef = doc(db, settingsPath, "pin_config");
+                        await setDoc(pinDocRef, { pin: newPinInput }, { merge: true });
+                    }
+                    
+                    setAdminPin(newPinInput);
+                    setShowSettingsModal(false);
+                    setNewPinInput("");
+                    showToast("PIN Keamanan Berhasil Diubah!", "success");
+                } catch (err) {
+                    showToast("Gagal menyimpan PIN baru ke server.", "error");
+                }
+            };
+
+            const handleAddSubmission = async (e) => {
+                e.preventDefault();
+
+                if (!isUnlocked) {
+                    setShowPinModal(true);
+                    return;
+                }
+
+                // Validations
+                if (!formTeacher) {
+                    showToast("Silakan pilih Nama Guru terlebih dahulu.", "error");
+                    return;
+                }
+                if (formType !== "jurnal_walikelas" && formType !== "jurnal_kelas" && !formSubject) {
+                    showToast("Silakan pilih Mata Pelajaran terlebih dahulu.", "error");
+                    return;
+                }
+                if (formType !== "perangkat" && !formClass) {
+                    showToast("Silakan tentukan Kelas terlebih dahulu.", "error");
+                    return;
+                }
+
+                setSaving(true);
+                const payload = {
+                    category: formType,
+                    teacher: formTeacher,
+                    subject: formType === "jurnal_walikelas" || formType === "jurnal_kelas" ? "" : formSubject,
+                    class: formType === "perangkat" ? "" : formClass,
+                    period: formPeriod,
+                    status: formStatus,
+                    notes: formNotes,
+                    updatedAt: new Date().toISOString(),
+                    updatedBy: user ? user.uid : "Anonymous"
+                };
+
+                // Check for existing records to prevent duplicates & overwrite cleanly
+                const existingIndex = submissions.findIndex(s => 
+                    s.category === payload.category &&
+                    s.teacher === payload.teacher &&
+                    s.subject === payload.subject &&
+                    s.class === payload.class &&
+                    s.period === payload.period
+                );
+
+                try {
+                    const { doc, setDoc, collection, addDoc } = window.firebaseModules;
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'kurikulum-admin-dashboard';
+                    const submissionsPath = `/artifacts/${appId}/public/data/submissions`;
+
+                    if (db) {
+                        if (existingIndex >= 0) {
+                            // Update existing record
+                            const docId = submissions[existingIndex].id;
+                            const recordRef = doc(db, submissionsPath, docId);
+                            await setDoc(recordRef, payload, { merge: true });
+                            showToast("Data administrasi lama berhasil diperbarui secara otomatis!", "success");
+                        } else {
+                            // Insert new record
+                            const colRef = collection(db, submissionsPath);
+                            await addDoc(colRef, payload);
+                            showToast("Administrasi baru berhasil disimpan!", "success");
+                        }
+                    } else {
+                        // Local fallback simulation
+                        if (existingIndex >= 0) {
+                            const updated = [...submissions];
+                            updated[existingIndex] = { id: submissions[existingIndex].id, ...payload };
+                            setSubmissions(updated);
+                        } else {
+                            setSubmissions([...submissions, { id: Date.now().toString(), ...payload }]);
+                        }
+                        showToast("Data disimpan ke penyimpanan lokal (Mode Demo).", "success");
+                    }
+
+                    // Reset notes only
+                    setFormNotes("");
+                } catch (err) {
+                    console.error("Save error:", err);
+                    showToast("Gagal menyimpan data ke database server.", "error");
+                } finally {
+                    setSaving(false);
+                }
+            };
+
+            const handleDeleteRecord = async (id) => {
+                if (!isUnlocked) {
+                    setShowPinModal(true);
+                    return;
+                }
+
+                if (!confirm("Apakah Anda yakin ingin menghapus data administrasi ini?")) return;
+
+                try {
+                    const { doc, deleteDoc } = window.firebaseModules;
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'kurikulum-admin-dashboard';
+                    const submissionsPath = `/artifacts/${appId}/public/data/submissions`;
+
+                    if (db) {
+                        const recordRef = doc(db, submissionsPath, id);
+                        await deleteDoc(recordRef);
+                        showToast("Data administrasi berhasil dihapus.", "success");
+                    } else {
+                        setSubmissions(submissions.filter(s => s.id !== id));
+                        showToast("Data lokal berhasil dihapus.", "success");
+                    }
+                } catch (err) {
+                    showToast("Gagal menghapus data dari server.", "error");
+                }
+            };
+
+            const handleFastStatusUpdate = async (record, newStatus) => {
+                if (!isUnlocked) {
+                    setShowPinModal(true);
+                    return;
+                }
+
+                try {
+                    const { doc, setDoc } = window.firebaseModules;
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'kurikulum-admin-dashboard';
+                    const submissionsPath = `/artifacts/${appId}/public/data/submissions`;
+
+                    const updatedPayload = {
+                        ...record,
+                        status: newStatus,
+                        updatedAt: new Date().toISOString()
+                    };
+
+                    if (db) {
+                        const recordRef = doc(db, submissionsPath, record.id);
+                        await setDoc(recordRef, updatedPayload, { merge: true });
+                    } else {
+                        setSubmissions(submissions.map(s => s.id === record.id ? updatedPayload : s));
+                    }
+                    showToast(`Status diperbarui menjadi: ${newStatus}`, "success");
+                } catch (err) {
+                    showToast("Gagal memperbarui status secara cepat.", "error");
+                }
+            };
+
+            const filteredSubmissions = useMemo(() => {
+                return submissions.filter(item => {
+                    const matchTeacher = !filterTeacher || item.teacher === filterTeacher;
+                    const matchClass = !filterClass || item.class === filterClass;
+                    const matchSubject = !filterSubject || item.subject === filterSubject;
+                    const matchStatus = !filterStatus || item.status === filterStatus;
+                    
+                    const queryText = searchTerm.toLowerCase();
+                    const matchSearch = !searchTerm || 
+                        item.teacher.toLowerCase().includes(queryText) ||
+                        (item.subject && item.subject.toLowerCase().includes(queryText)) ||
+                        (item.class && item.class.toLowerCase().includes(queryText)) ||
+                        item.period.toLowerCase().includes(queryText) ||
+                        (item.notes && item.notes.toLowerCase().includes(queryText));
+
+                    return matchTeacher && matchClass && matchSubject && matchStatus && matchSearch;
+                });
+            }, [submissions, filterTeacher, filterClass, filterSubject, filterStatus, searchTerm]);
+
+            // Analytics Totals
+            const statistics = useMemo(() => {
+                const totalPerangkatTarget = TEACHERS.length; // target 1 per guru
+                const totalJurnalTarget = TEACHERS.length * 40; // target mingguan (40 minggu)
+                const totalWaliTarget = CLASSES.length * 12; // 12 bulan
+                const totalKelasTarget = CLASSES.length * 40; // 40 minggu
+
+                const perangkatCollected = submissions.filter(s => s.category === "perangkat" && s.status === "Sudah").length;
+                const jurnalCollected = submissions.filter(s => s.category === "jurnal_mengajar" && s.status === "Sudah").length;
+                const waliCollected = submissions.filter(s => s.category === "jurnal_walikelas" && s.status === "Sudah").length;
+                const kelasCollected = submissions.filter(s => s.category === "jurnal_kelas" && s.status === "Sudah").length;
+
+                return {
+                    perangkat: { collected: perangkatCollected, target: totalPerangkatTarget, pct: Math.min(100, Math.round((perangkatCollected / totalPerangkatTarget) * 100)) || 0 },
+                    jurnal_mengajar: { collected: jurnalCollected, target: totalJurnalTarget, pct: Math.min(100, Math.round((jurnalCollected / totalJurnalTarget) * 100)) || 0 },
+                    jurnal_walikelas: { collected: waliCollected, target: totalWaliTarget, pct: Math.min(100, Math.round((waliCollected / totalWaliTarget) * 100)) || 0 },
+                    jurnal_kelas: { collected: kelasCollected, target: totalKelasTarget, pct: Math.min(100, Math.round((kelasCollected / totalKelasTarget) * 100)) || 0 }
+                };
+            }, [submissions]);
+
+            useEffect(() => {
+                if (currentTab === "overview" && chartRef.current && !loading) {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+
+                    const ctx = chartRef.current.getContext('2d');
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Perangkat Mengajar', 'Jurnal Mengajar', 'Jurnal Wali Kelas', 'Jurnal Kelas'],
+                            datasets: [
+                                {
+                                    label: 'Persentase Pengumpulan (%)',
+                                    data: [
+                                        statistics.perangkat.pct,
+                                        statistics.jurnal_mengajar.pct,
+                                        statistics.jurnal_walikelas.pct,
+                                        statistics.jurnal_kelas.pct
+                                    ],
+                                    backgroundColor: [
+                                        'rgba(79, 70, 229, 0.8)',  // Indigo
+                                        'rgba(16, 185, 129, 0.8)', // Emerald
+                                        'rgba(245, 158, 11, 0.8)', // Amber
+                                        'rgba(59, 130, 246, 0.8)'  // Blue
+                                    ],
+                                    borderColor: [
+                                        'rgb(79, 70, 229)',
+                                        'rgb(16, 185, 129)',
+                                        'rgb(245, 158, 11)',
+                                        'rgb(59, 130, 246)'
+                                    ],
+                                    borderWidth: 1.5,
+                                    borderRadius: 8
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    ticks: {
+                                        callback: value => value + "%"
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            }
+                        }
+                    });
+                }
+            }, [currentTab, statistics, loading]);
+
+            return (
+                <div className="flex flex-col min-h-screen">
+                    
+                    {}
+                    <header className="bg-slate-900 text-white shadow-xl border-b border-slate-800 sticky top-0 z-40">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                            
+                            {/* Logo & School Context */}
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl shadow-md shadow-indigo-500/20">
+                                    <i className="fa-solid fa-graduation-cap text-2xl text-white"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+                                        ADMIN-SINKRON
+                                    </h1>
+                                    <p className="text-xs text-indigo-300 font-medium">Dashboard Administrasi Kurikulum • TA 2026/2027</p>
+                                </div>
+                            </div>
+
+                            {/* Control Actions & Locked/Unlocked Switcher */}
+                            <div className="flex flex-wrap items-center gap-3">
+                                <button 
+                                    onClick={() => setShowSettingsModal(true)}
+                                    className="p-2.5 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition"
+                                    title="Pengaturan PIN"
+                                >
+                                    <i className="fa-solid fa-cog"></i>
+                                </button>
+
+                                {isUnlocked ? (
+                                    <div className="flex items-center gap-2 bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 px-4 py-2 rounded-xl text-sm font-semibold shadow-inner">
+                                        <span className="relative flex h-2 w-2">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                        </span>
+                                        <span>Akses Terbuka (Staff Kurikulum)</span>
+                                        <button 
+                                            onClick={handleLock}
+                                            className="ml-2 px-2 py-1 bg-red-600/30 text-red-300 hover:bg-red-600 hover:text-white rounded-lg text-xs font-bold transition"
+                                        >
+                                            <i className="fa-solid fa-lock mr-1"></i> Kunci
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button 
+                                        onClick={() => setShowPinModal(true)}
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition transform active:scale-95"
+                                    >
+                                        <i className="fa-solid fa-lock-open"></i>
+                                        Buka Akses Input (PIN)
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Toast Notification */}
+                    {toast && (
+                        <div className="fixed bottom-6 right-6 z-50 animate-bounce">
+                            <div className={`flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl text-white ${
+                                toast.type === "success" ? "bg-emerald-600" : toast.type === "error" ? "bg-red-600" : "bg-blue-600"
+                            }`}>
+                                <i className={`fa-solid ${
+                                    toast.type === "success" ? "fa-circle-check" : toast.type === "error" ? "fa-triangle-exclamation" : "fa-circle-info"
+                                } text-lg`}></i>
+                                <span className="text-sm font-medium">{toast.message}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {}
+                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full flex flex-col gap-8">
+                        
+                        {/* Tab Menu Selection */}
+                        <div className="flex border-b border-slate-200 overflow-x-auto gap-2 py-1 scrollbar-none">
+                            <button 
+                                onClick={() => setCurrentTab("overview")}
+                                className={`px-5 py-3 rounded-t-xl font-bold text-sm whitespace-nowrap transition flex items-center gap-2 ${
+                                    currentTab === "overview" 
+                                        ? "bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600" 
+                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                }`}
+                            >
+                                <i className="fa-solid fa-chart-line"></i>
+                                Overview & Statistik
+                            </button>
+                            <button 
+                                onClick={() => setCurrentTab("perangkat")}
+                                className={`px-5 py-3 rounded-t-xl font-bold text-sm whitespace-nowrap transition flex items-center gap-2 ${
+                                    currentTab === "perangkat" 
+                                        ? "bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600" 
+                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                }`}
+                            >
+                                <i className="fa-solid fa-folder-open"></i>
+                                Perangkat Mengajar (1 Tahun)
+                            </button>
+                            <button 
+                                onClick={() => setCurrentTab("jurnal_mengajar")}
+                                className={`px-5 py-3 rounded-t-xl font-bold text-sm whitespace-nowrap transition flex items-center gap-2 ${
+                                    currentTab === "jurnal_mengajar" 
+                                        ? "bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600" 
+                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                }`}
+                            >
+                                <i className="fa-solid fa-book"></i>
+                                Jurnal Mengajar (Mingguan)
+                            </button>
+                            <button 
+                                onClick={() => setCurrentTab("jurnal_walikelas")}
+                                className={`px-5 py-3 rounded-t-xl font-bold text-sm whitespace-nowrap transition flex items-center gap-2 ${
+                                    currentTab === "jurnal_walikelas" 
+                                        ? "bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600" 
+                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                }`}
+                            >
+                                <i className="fa-solid fa-user-tie"></i>
+                                Jurnal Wali Kelas (Bulanan)
+                            </button>
+                            <button 
+                                onClick={() => setCurrentTab("jurnal_kelas")}
+                                className={`px-5 py-3 rounded-t-xl font-bold text-sm whitespace-nowrap transition flex items-center gap-2 ${
+                                    currentTab === "jurnal_kelas" 
+                                        ? "bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600" 
+                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                }`}
+                            >
+                                <i className="fa-solid fa-clipboard-list"></i>
+                                Jurnal Kelas (Mingguan)
+                            </button>
+                        </div>
+
+                        {}
+                        {currentTab === "overview" && (
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                
+                                {/* left stats column */}
+                                <div className="lg:col-span-2 flex flex-col gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        
+                                        {/* Perangkat Card */}
+                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                                            <div className="p-4 bg-indigo-50 text-indigo-600 rounded-xl">
+                                                <i className="fa-solid fa-folder-open text-2xl"></i>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-slate-400">Perangkat Mengajar</h4>
+                                                <div className="flex items-baseline gap-2 mt-1">
+                                                    <span className="text-2xl font-black text-slate-800">{statistics.perangkat.collected}</span>
+                                                    <span className="text-sm text-slate-400">/ {statistics.perangkat.target} guru</span>
+                                                </div>
+                                                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                                                    <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${statistics.perangkat.pct}%` }}></div>
+                                                </div>
+                                                <span className="text-xs text-indigo-600 font-bold mt-1 block">{statistics.perangkat.pct}% Selesai</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Jurnal Mengajar Card */}
+                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                                            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-xl">
+                                                <i className="fa-solid fa-book text-2xl"></i>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-slate-400">Jurnal Mengajar</h4>
+                                                <div className="flex items-baseline gap-2 mt-1">
+                                                    <span className="text-2xl font-black text-slate-800">{statistics.jurnal_mengajar.collected}</span>
+                                                    <span className="text-sm text-slate-400">terkumpul</span>
+                                                </div>
+                                                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                                                    <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${statistics.jurnal_mengajar.pct}%` }}></div>
+                                                </div>
+                                                <span className="text-xs text-emerald-600 font-bold mt-1 block">{statistics.jurnal_mengajar.pct}% Selesai (Mingguan)</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Jurnal Wali Kelas Card */}
+                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                                            <div className="p-4 bg-amber-50 text-amber-600 rounded-xl">
+                                                <i className="fa-solid fa-user-tie text-2xl"></i>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-slate-400">Jurnal Wali Kelas</h4>
+                                                <div className="flex items-baseline gap-2 mt-1">
+                                                    <span className="text-2xl font-black text-slate-800">{statistics.jurnal_walikelas.collected}</span>
+                                                    <span className="text-sm text-slate-400">/ {statistics.jurnal_walikelas.target} target</span>
+                                                </div>
+                                                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                                                    <div className="bg-amber-500 h-full rounded-full" style={{ width: `${statistics.jurnal_walikelas.pct}%` }}></div>
+                                                </div>
+                                                <span className="text-xs text-amber-600 font-bold mt-1 block">{statistics.jurnal_walikelas.pct}% Selesai (Bulanan)</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Jurnal Kelas Card */}
+                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                                            <div className="p-4 bg-blue-50 text-blue-600 rounded-xl">
+                                                <i className="fa-solid fa-clipboard-list text-2xl"></i>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-slate-400">Jurnal Kelas</h4>
+                                                <div className="flex items-baseline gap-2 mt-1">
+                                                    <span className="text-2xl font-black text-slate-800">{statistics.jurnal_kelas.collected}</span>
+                                                    <span className="text-sm text-slate-400">terkumpul</span>
+                                                </div>
+                                                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                                                    <div className="bg-blue-500 h-full rounded-full" style={{ width: `${statistics.jurnal_kelas.pct}%` }}></div>
+                                                </div>
+                                                <span className="text-xs text-blue-600 font-bold mt-1 block">{statistics.jurnal_kelas.pct}% Selesai (Mingguan)</span>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    {/* Visual Chart Card */}
+                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex-grow flex flex-col min-h-[300px]">
+                                        <h3 className="font-bold text-slate-800 mb-4 text-base flex items-center gap-2">
+                                            <i className="fa-solid fa-chart-column text-indigo-600"></i>
+                                            Grafik Persentase Pengumpulan Administrasi Sekolah
+                                        </h3>
+                                        <div className="flex-grow relative h-64">
+                                            {loading ? (
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                                                </div>
+                                            ) : (
+                                                <canvas ref={chartRef}></canvas>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right quick-input & lock information sidebar */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-6">
+                                    <div className="border-b border-slate-100 pb-4">
+                                        <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                                            <i className="fa-solid fa-shield-halved text-indigo-600"></i>
+                                            Kontrol Pengisian
+                                        </h3>
+                                        <p className="text-xs text-slate-400 mt-1">Gunakan formulir di bawah ini untuk menyimpan/update data administrasi secara real-time.</p>
+                                    </div>
+
+                                    {/* PIN Warning Banner if Locked */}
+                                    {!isUnlocked && (
+                                        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-amber-800 text-sm flex gap-3">
+                                            <i className="fa-solid fa-circle-exclamation text-lg mt-0.5 text-amber-600"></i>
+                                            <div>
+                                                <span className="font-bold">Formulir Terkunci.</span> Silakan klik tombol "Buka Akses Input" di kanan atas dan masukkan PIN staf kurikulum terlebih dahulu untuk menginput data.
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Unified Quick Input Form */}
+                                    <form onSubmit={handleAddSubmission} className="flex flex-col gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kategori Administrasi</label>
+                                            <select 
+                                                value={formType}
+                                                onChange={(e) => setFormType(e.target.value)}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                disabled={!isUnlocked}
+                                            >
+                                                <option value="perangkat">1. Perangkat Mengajar (1 Tahun Sekali)</option>
+                                                <option value="jurnal_mengajar">2. Jurnal Mengajar (Seminggu Sekali)</option>
+                                                <option value="jurnal_walikelas">3. Jurnal Wali Kelas (Sebulan Sekali)</option>
+                                                <option value="jurnal_kelas">4. Jurnal Kelas (Setiap Minggu)</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Class Selector for classes administration */}
+                                        {formType !== "perangkat" && (
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kelas</label>
+                                                <select 
+                                                    value={formClass}
+                                                    onChange={(e) => setFormClass(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    disabled={!isUnlocked}
+                                                >
+                                                    <option value="">-- Pilih Kelas --</option>
+                                                    {CLASSES.map(cls => (
+                                                        <option key={cls} value={cls}>{cls}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {/* Teacher field */}
+                                        {/* For Jurnal Wali Kelas, this is disabled as it automatically maps based on the selected class */}
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                                {formType === "jurnal_walikelas" ? "Wali Kelas (Otomatis)" : "Nama Guru"}
+                                            </label>
+                                            <select 
+                                                value={formTeacher}
+                                                onChange={(e) => setFormTeacher(e.target.value)}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                disabled={!isUnlocked || formType === "jurnal_walikelas"}
+                                            >
+                                                <option value="">-- Pilih Guru --</option>
+                                                {TEACHERS.map(teacher => (
+                                                    <option key={teacher} value={teacher}>{teacher}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Subject Field (Only for teaching docs and weekly teaching journals) */}
+                                        {formType !== "jurnal_walikelas" && formType !== "jurnal_kelas" && (
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Mata Pelajaran</label>
+                                                <select 
+                                                    value={formSubject}
+                                                    onChange={(e) => setFormSubject(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    disabled={!isUnlocked}
+                                                >
+                                                    <option value="">-- Pilih Mata Pelajaran --</option>
+                                                    {SUBJECTS.map(subj => (
+                                                        <option key={subj} value={subj}>{subj}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {/* Period Picker based on type */}
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Periode Pengumpulan</label>
+                                            {formType === "perangkat" ? (
+                                                <input 
+                                                    type="text" 
+                                                    value={formPeriod} 
+                                                    disabled 
+                                                    className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-500"
+                                                />
+                                            ) : formType === "jurnal_mengajar" || formType === "jurnal_kelas" ? (
+                                                <select 
+                                                    value={formPeriod}
+                                                    onChange={(e) => setFormPeriod(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    disabled={!isUnlocked}
+                                                >
+                                                    {WEEKS.map(w => (
+                                                        <option key={w} value={w}>{w}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <select 
+                                                    value={formPeriod}
+                                                    onChange={(e) => setFormPeriod(e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    disabled={!isUnlocked}
+                                                >
+                                                    {MONTHS.map(m => (
+                                                        <option key={m} value={m}>{m}</option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                        </div>
+
+                                        {/* Status Picker */}
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Status Pengumpulan</label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {["Sudah", "Revisi", "Belum"].map(statusVal => (
+                                                    <button
+                                                        key={statusVal}
+                                                        type="button"
+                                                        onClick={() => setFormStatus(statusVal)}
+                                                        className={`py-2 px-3 rounded-xl border text-sm font-bold transition flex items-center justify-center gap-1.5 ${
+                                                            formStatus === statusVal 
+                                                                ? statusVal === "Sudah" 
+                                                                    ? "bg-emerald-550 bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-600/10"
+                                                                    : statusVal === "Revisi"
+                                                                        ? "bg-amber-550 bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-500/10"
+                                                                        : "bg-red-550 bg-red-600 border-red-600 text-white shadow-md shadow-red-600/10"
+                                                                : "bg-slate-550 bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                                                        }`}
+                                                        disabled={!isUnlocked}
+                                                    >
+                                                        <span className={`h-2 w-2 rounded-full ${
+                                                            statusVal === "Sudah" ? "bg-emerald-300" : statusVal === "Revisi" ? "bg-amber-300" : "bg-red-300"
+                                                        }`}></span>
+                                                        {statusVal}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Notes Field */}
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Catatan / Link Administrasi</label>
+                                            <textarea 
+                                                value={formNotes}
+                                                onChange={(e) => setFormNotes(e.target.value)}
+                                                placeholder="Contoh: Link drive, atau nama dokumen..."
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[60px]"
+                                                disabled={!isUnlocked}
+                                            />
+                                        </div>
+
+                                        <button 
+                                            type="submit"
+                                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                                            disabled={!isUnlocked || saving}
+                                        >
+                                            {saving ? (
+                                                <div className="animate-spin rounded-full h-5 w-8 border-b-2 border-white"></div>
+                                            ) : (
+                                                <>
+                                                    <i className="fa-solid fa-floppy-disk"></i>
+                                                    Simpan Data Administrasi
+                                                </>
+                                            )}
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
+                        {}
+                        {currentTab !== "overview" && (
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-6">
+                                
+                                {/* Inner Title and Description */}
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-800 capitalize flex items-center gap-2">
+                                            <i className="fa-solid fa-circle-dot text-indigo-600"></i>
+                                            Kelola {currentTab.replace("_", " ")}
+                                        </h2>
+                                        <p className="text-sm text-slate-400 mt-0.5">Pantau status, filter rekapitulasi, dan ubah status pengumpulan kurikulum secara instan.</p>
+                                    </div>
+
+                                    {/* Action buttons (Print/Export) */}
+                                    <button 
+                                        onClick={() => window.print()}
+                                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm px-4 py-2 rounded-xl flex items-center gap-2 transition"
+                                    >
+                                        <i className="fa-solid fa-print"></i>
+                                        Cetak Laporan
+                                    </button>
+                                </div>
+
+                                {/* Advanced Filters Bar */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl">
+                                    
+                                    {/* Teacher Search */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 mb-1">Cari Guru</label>
+                                        <select 
+                                            value={filterTeacher} 
+                                            onChange={(e) => setFilterTeacher(e.target.value)}
+                                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                                        >
+                                            <option value="">Semua Guru</option>
+                                            {TEACHERS.map(t => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* Class Search if applicable */}
+                                    {currentTab !== "perangkat" && (
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 mb-1">Kelas</label>
+                                            <select 
+                                                value={filterClass} 
+                                                onChange={(e) => setFilterClass(e.target.value)}
+                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                                            >
+                                                <option value="">Semua Kelas</option>
+                                                {CLASSES.map(cls => <option key={cls} value={cls}>{cls}</option>)}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {/* Subject Filter if applicable */}
+                                    {currentTab !== "jurnal_walikelas" && currentTab !== "jurnal_kelas" && (
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 mb-1">Mata Pelajaran</label>
+                                            <select 
+                                                value={filterSubject} 
+                                                onChange={(e) => setFilterSubject(e.target.value)}
+                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                                            >
+                                                <option value="">Semua Mapel</option>
+                                                {SUBJECTS.map(subj => <option key={subj} value={subj}>{subj}</option>)}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {/* Status Filter */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 mb-1">Status</label>
+                                        <select 
+                                            value={filterStatus} 
+                                            onChange={(e) => setFilterStatus(e.target.value)}
+                                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                                        >
+                                            <option value="">Semua Status</option>
+                                            <option value="Sudah">Sudah</option>
+                                            <option value="Revisi">Revisi</option>
+                                            <option value="Belum">Belum</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Global Search Term */}
+                                    <div className={currentTab === "perangkat" ? "sm:col-span-2" : "sm:col-span-1"}>
+                                        <label className="block text-xs font-bold text-slate-500 mb-1">Pencarian Umum</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="text"
+                                                placeholder="Ketik kata kunci..."
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none"
+                                            />
+                                            <i className="fa-solid fa-search text-slate-400 absolute left-3 top-3 text-xs"></i>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                {}
+                                <div className="overflow-x-auto border border-slate-100 rounded-2xl custom-scrollbar">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-900 text-white text-xs font-bold uppercase tracking-wider">
+                                                <th className="py-4 px-6 rounded-tl-xl">Nama / Identitas</th>
+                                                <th className="py-4 px-6">Administrasi & Periode</th>
+                                                <th className="py-4 px-6">Catatan</th>
+                                                <th className="py-4 px-6">Status Pengumpulan</th>
+                                                <th className="py-4 px-6 rounded-tr-xl text-center">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 text-sm">
+                                            {filteredSubmissions.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="5" className="py-12 text-center text-slate-400">
+                                                        <i className="fa-solid fa-folder-open text-3xl mb-3 block text-slate-300"></i>
+                                                        Tidak ada data administrasi pengumpulan yang cocok atau sudah terinput.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                filteredSubmissions
+                                                    .filter(item => item.category === currentTab)
+                                                    .map(item => (
+                                                        <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                                                            
+                                                            {/* User & Class / Subject details */}
+                                                            <td className="py-4 px-6">
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-bold text-slate-800">{item.teacher}</span>
+                                                                    {item.subject && (
+                                                                        <span className="text-xs text-indigo-600 font-medium mt-0.5">{item.subject}</span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+
+                                                            {/* Administration type details */}
+                                                            <td className="py-4 px-6">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-xs font-semibold px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg w-max mb-1">
+                                                                        {item.category === "perangkat" ? "Perangkat" : item.category === "jurnal_mengajar" ? "Jurnal Mengajar" : item.category === "jurnal_walikelas" ? "Jurnal Wali" : "Jurnal Kelas"}
+                                                                    </span>
+                                                                    <span className="text-slate-600 font-medium">{item.period}</span>
+                                                                    {item.class && (
+                                                                        <span className="text-xs text-slate-400 mt-0.5">Kelas: <span className="font-bold text-slate-500">{item.class}</span></span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+
+                                                            {/* Notes/Link */}
+                                                            <td className="py-4 px-6 max-w-xs">
+                                                                <p className="text-slate-500 text-xs truncate" title={item.notes}>
+                                                                    {item.notes || <em className="text-slate-300">Tidak ada catatan</em>}
+                                                                </p>
+                                                            </td>
+
+                                                            {/* Interactive status badge or direct quick status selector */}
+                                                            <td className="py-4 px-6">
+                                                                {isUnlocked ? (
+                                                                    <div className="flex items-center gap-1">
+                                                                        {["Sudah", "Revisi", "Belum"].map(st => (
+                                                                            <button 
+                                                                                key={st}
+                                                                                onClick={() => handleFastStatusUpdate(item, st)}
+                                                                                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition border ${
+                                                                                    item.status === st 
+                                                                                        ? st === "Sudah" 
+                                                                                            ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                                                                            : st === "Revisi"
+                                                                                                ? "bg-amber-100 text-amber-800 border-amber-300"
+                                                                                                : "bg-red-100 text-red-800 border-red-300"
+                                                                                        : "bg-white text-slate-400 border-slate-200 hover:bg-slate-100"
+                                                                                }`}
+                                                                            >
+                                                                                {st}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${
+                                                                        item.status === "Sudah" 
+                                                                            ? "bg-emerald-100 text-emerald-800"
+                                                                            : item.status === "Revisi"
+                                                                                ? "bg-amber-100 text-amber-800"
+                                                                                : "bg-red-100 text-red-800"
+                                                                    }`}>
+                                                                        {item.status}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+
+                                                            {/* Action deletion buttons */}
+                                                            <td className="py-4 px-6 text-center">
+                                                                <button 
+                                                                    onClick={() => handleDeleteRecord(item.id)}
+                                                                    className="p-2 text-red-400 hover:text-red-600 transition rounded-lg hover:bg-red-50"
+                                                                    title="Hapus data"
+                                                                >
+                                                                    <i className="fa-solid fa-trash-can"></i>
+                                                                </button>
+                                                            </td>
+
+                                                        </tr>
+                                                    ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                    </main>
+
+                    {}
+                    {showPinModal && (
+                        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 transform transition-all">
+                                
+                                <div className="text-center mb-6">
+                                    <div className="mx-auto w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 text-2xl">
+                                        <i className="fa-solid fa-key"></i>
+                                    </div>
+                                    <h3 className="text-xl font-extrabold text-slate-800">Buka Akses Pengisian</h3>
+                                    <p className="text-sm text-slate-400 mt-1">Hanya staf kurikulum yang memiliki otorisasi untuk melakukan input atau modifikasi data.</p>
+                                </div>
+
+                                <form onSubmit={handleUnlock} className="flex flex-col gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 text-center">Masukkan PIN Kurikulum</label>
+                                        <input 
+                                            type="password"
+                                            value={pinInput}
+                                            onChange={(e) => setPinInput(e.target.value)}
+                                            placeholder="••••"
+                                            className="w-full text-center tracking-widest text-2xl font-black bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            maxLength="10"
+                                            autoFocus
+                                        />
+                                        {pinError && (
+                                            <p className="text-xs text-red-500 mt-2 text-center font-semibold">
+                                                <i className="fa-solid fa-circle-exclamation mr-1"></i>
+                                                {pinError}
+                                            </p>
+                                        )}
+                                        <p className="text-[11px] text-slate-400 mt-2 text-center">PIN Default: <strong className="text-indigo-600">2026</strong>. Anda bisa mengubah PIN ini di pojok kanan atas setelah masuk.</p>
+                                    </div>
+
+                                    <div className="flex gap-3 mt-2">
+                                        <button 
+                                            type="button"
+                                            onClick={() => { setShowPinModal(false); setPinInput(""); setPinError(""); }}
+                                            className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 rounded-xl text-sm transition"
+                                        >
+                                            Batal
+                                        </button>
+                                        <button 
+                                            type="submit"
+                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm transition shadow-lg shadow-indigo-600/20"
+                                        >
+                                            Verifikasi PIN
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {}
+                    {showSettingsModal && (
+                        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 transform transition-all">
+                                
+                                <div className="text-center mb-6">
+                                    <div className="mx-auto w-14 h-14 bg-slate-100 text-slate-700 rounded-2xl flex items-center justify-center mb-4 text-2xl">
+                                        <i className="fa-solid fa-gears"></i>
+                                    </div>
+                                    <h3 className="text-xl font-extrabold text-slate-800">Pengaturan Keamanan</h3>
+                                    <p className="text-sm text-slate-400 mt-1">Perbarui PIN verifikasi untuk membatasi pengisian data administrasi.</p>
+                                </div>
+
+                                <form onSubmit={handleUpdatePin} className="flex flex-col gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">PIN Keamanan Baru</label>
+                                        <input 
+                                            type="text"
+                                            value={newPinInput}
+                                            onChange={(e) => setNewPinInput(e.target.value)}
+                                            placeholder="Masukkan PIN Baru (Min. 4 Digit)"
+                                            className="w-full text-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            maxLength="15"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-3 mt-2">
+                                        <button 
+                                            type="button"
+                                            onClick={() => { setShowSettingsModal(false); setNewPinInput(""); }}
+                                            className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 rounded-xl text-sm transition"
+                                        >
+                                            Batal
+                                        </button>
+                                        <button 
+                                            type="submit"
+                                            className="flex-1 bg-slate-900 hover:bg-slate-850 text-white font-bold py-3 rounded-xl text-sm transition shadow-lg"
+                                        >
+                                            Simpan PIN Baru
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Footer */}
+                    <footer className="bg-slate-900 text-slate-400 text-xs py-6 border-t border-slate-800 mt-auto">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-3">
+                            <span>Sistem Dashboard Real-time • Tahun Ajaran 2026/2027</span>
+                            <span className="flex items-center gap-1.5 text-indigo-400">
+                                <i className="fa-solid fa-circle-check text-xs"></i>
+                                Terkoneksi dengan Database Cloud Firestore
+                            </span>
+                        </div>
+                    </footer>
+
+                </div>
+            );
+        }
+
+        // Render React Application
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
